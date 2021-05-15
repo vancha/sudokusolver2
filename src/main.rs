@@ -1,9 +1,19 @@
+extern crate gio;
+extern crate gtk;
+
+// To import all needed traits.
+use gio::prelude::*;
+use gtk::prelude::*;
+
+use std::env;
+
+
 fn solve(board: &mut Vec<Vec<i32>>) -> bool {
     for r in 0i32..9 {
         for c in 0i32..9 {
             if board[r as usize][c as usize] == 0 {
                 for d in 1..10 {
-                    if isValid(board, r, c, d) {
+                    if is_valid(board, r, c, d) {
                         board[r as usize][c as usize] = d;
                         if solve(board) {
                             return true;
@@ -18,7 +28,7 @@ fn solve(board: &mut Vec<Vec<i32>>) -> bool {
     true
 }
 
-fn isValid(board: &Vec<Vec<i32>>, r: i32, c: i32, d: i32) -> bool {
+fn is_valid(board: &Vec<Vec<i32>>, r: i32, c: i32, d: i32) -> bool {
     for row in 0..9 {
         if board[row as usize][c as usize] == d {
             return false;
@@ -41,46 +51,17 @@ fn isValid(board: &Vec<Vec<i32>>, r: i32, c: i32, d: i32) -> bool {
     return true;
 }
 
-fn solveSudoku(board: &mut Vec<Vec<i32>>) {
-    solve(board);
-}
 
-
-
-/*
-fn main() {
-    let mut board = vec![
-        vec![0, 0, 0, 0, 0, 0, 0, 0, 0],
-        vec![0, 0, 0, 0, 0, 0, 0, 0, 0],
-        vec![0, 0, 0, 0, 0, 0, 0, 0, 0],
-        vec![0, 0, 0, 0, 0, 0, 0, 0, 6],
-        vec![0, 0, 0, 0, 0, 0, 0, 0, 0],
-        vec![0, 0, 0, 0, 0, 0, 0, 0, 0],
-        vec![0, 0, 0, 0, 0, 0, 0, 0, 0],
-        vec![0, 0, 0, 0, 0, 0, 0, 0, 0],
-        vec![0, 0, 0, 0, 0, 0, 0, 0, 0],
-    ];
-
-    println!("{:?}", solve(&mut board));
-    for x in board.clone() {
-        println!("{:?}", x);
-    }
-}*/
-
-extern crate gtk;
-extern crate gio;
-
-// To import all needed traits.
-use gtk::prelude::*;
-use gio::prelude::*;
-
-use std::env;
 
 fn main() {
-    let uiapp = gtk::Application::new(Some("org.gtkrsnotes.demo"),
-                                      gio::ApplicationFlags::FLAGS_NONE)
-                                 .expect("Application::new failed");
+    let uiapp = gtk::Application::new(
+        Some("org.gtkrsnotes.demo"),
+        gio::ApplicationFlags::FLAGS_NONE,
+    )
+    .expect("Application::new failed");
+
     uiapp.connect_activate(|app| {
+        let mut sudo_list: Vec<Vec<gtk::Entry>> = vec![];
         // We create the main window.
         let win = gtk::ApplicationWindow::new(app);
 
@@ -89,17 +70,76 @@ fn main() {
         win.set_title("Basic example");
         let layout = gtk::Box::new(gtk::Orientation::Vertical, 6);
         for row in 0..9 {
-            let row = gtk::Box::new(gtk::Orientation::Horizontal,6);
-            for column in 0..9 {
-                //let column = gtk::Box::new(gtk::Orientation::Horizontal, 16);
+            let rowbox = gtk::Box::new(gtk::Orientation::Horizontal, 6);
+            let mut entry_model: Vec<gtk::Entry> = vec![];
+            for _ in 0..9 {
                 let b = gtk::Entry::new();
+                b.set_text("0");
                 b.set_width_chars(2);
-                row.add(&b);
+                entry_model.push(b.clone());
+                rowbox.add(&b);
             }
-            layout.add(&row);
+
+            layout.add(&rowbox);
+            sudo_list.push(entry_model);
+
+            if row == 8 {
+                let calculate_button = gtk::Button::new();
+                calculate_button.set_label("Solve!");
+                layout.add(&calculate_button);
+
+                let sl2 = sudo_list.clone();
+                calculate_button.connect_clicked(move |_| {
+                    let mut board = vec![
+                        vec![0, 0, 0, 0, 0, 0, 0, 0, 0],
+                        vec![0, 0, 0, 0, 0, 0, 0, 0, 0],
+                        vec![0, 0, 0, 0, 0, 0, 0, 0, 0],
+                        vec![0, 0, 0, 0, 0, 0, 0, 0, 6],
+                        vec![0, 0, 0, 0, 0, 0, 0, 0, 0],
+                        vec![0, 0, 0, 0, 0, 0, 0, 0, 0],
+                        vec![0, 0, 0, 0, 0, 0, 0, 0, 0],
+                        vec![0, 0, 0, 0, 0, 0, 0, 0, 0],
+                        vec![0, 0, 0, 0, 0, 0, 0, 0, 0],
+                    ];
+
+                    for (i1, x) in sl2.iter().enumerate() {
+                        for (i2, y) in x.iter().enumerate() {
+                            board[i1][i2] = y
+                                .clone()
+                                .downcast::<gtk::Entry>()
+                                .unwrap()
+                                .get_text()
+                                .as_str()
+                                .parse::<i32>()
+                                .unwrap();
+                        }
+                    }
+                    if solve(&mut board) {
+                        //do this on a thread, show a spinner
+
+                        for (i1, x) in sl2.iter().enumerate() {
+                            for (i2, y) in x.iter().enumerate() {
+                                y.clone()
+                                    .downcast::<gtk::Entry>()
+                                    .unwrap()
+                                    .set_text((board[i1][i2]).to_string().as_str());
+                            }
+                        }
+                    } else {
+                       if gtk::init().is_err() {
+                            println!("Failed to initialize GTK.");
+                            return;
+                        }
+                        gtk::MessageDialog::new(None::<&gtk::Window>,
+                                           gtk::DialogFlags::empty(),
+                                           gtk::MessageType::Info,
+                                           gtk::ButtonsType::Ok,
+                                           "Hello World").run();
+                    }
+                });
+            }
         }
         win.add(&layout);
-        // Don't forget to make all widgets visible.
         win.show_all();
     });
     uiapp.run(&env::args().collect::<Vec<_>>());
