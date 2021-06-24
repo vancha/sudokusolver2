@@ -5,45 +5,45 @@ extern crate gtk;
 use gio::prelude::*;
 use gtk::prelude::*;
 
-use std::env;
+const BLOCK_SIZE:i32 = 3;
 
 
 fn solve(board: &mut Vec<Vec<i32>>) -> bool {
-    for r in 0i32..9 {
-        for c in 0i32..9 {
-            if board[r as usize][c as usize] == 0 {
-                for d in 1..10 {
-                    if is_valid(board, r, c, d) {
-                        board[r as usize][c as usize] = d;
+    for row in 0..(BLOCK_SIZE*BLOCK_SIZE) {
+        for column in 0..(BLOCK_SIZE*BLOCK_SIZE) {
+            if board[row as usize][column as usize] == 0 {
+                for proposed_value in 1..(BLOCK_SIZE*BLOCK_SIZE)+1 {
+                    if is_valid(board, row, column, proposed_value) {
+                        board[row as usize][column as usize] = proposed_value;
                         if solve(board) {
                             return true;
                         }
-                        board[r as usize][c as usize] = 0;
+                        board[row as usize][column as usize] = 0;
                     }
                 }
                 return false;
             }
         }
     }
-    true
+    return true;
 }
 
-fn is_valid(board: &Vec<Vec<i32>>, r: i32, c: i32, d: i32) -> bool {
-    for row in 0..9 {
-        if board[row as usize][c as usize] == d {
+fn is_valid(board: &Vec<Vec<i32>>, r: i32, c: i32, proposed_value: i32) -> bool {
+    for row in 0..(BLOCK_SIZE*BLOCK_SIZE) {
+        if board[row as usize][c as usize] == proposed_value {
             return false;
         }
     }
 
-    for col in 0..9 {
-        if board[r as usize][col as usize] == d {
+    for col in 0..(BLOCK_SIZE*BLOCK_SIZE) {
+        if board[r as usize][col as usize] == proposed_value {
             return false;
         }
     }
 
-    for row in ((r / 3) * 3)..((r / 3 + 1) * 3) {
-        for col in ((c / 3) * 3)..((c / 3 + 1) * 3) {
-            if board[row as usize][col as usize] == d {
+    for row in ((r / BLOCK_SIZE) * BLOCK_SIZE)..((r / BLOCK_SIZE + 1) * BLOCK_SIZE) {
+        for col in ((c / BLOCK_SIZE) * BLOCK_SIZE)..((c / BLOCK_SIZE + 1) * BLOCK_SIZE) {
+            if board[row as usize][col as usize] == proposed_value {
                 return false;
             }
         }
@@ -55,35 +55,34 @@ fn is_valid(board: &Vec<Vec<i32>>, r: i32, c: i32, d: i32) -> bool {
 
 fn main() {
     let uiapp = gtk::Application::new(
-        Some("org.gtkrsnotes.demo"),
+        Some("org.example.demo"),
         gio::ApplicationFlags::FLAGS_NONE,
-    )
-    .expect("Application::new failed");
+    );
 
     uiapp.connect_activate(|app| {
+        //a 2d grid of entries, that the user will type their sudoku numbers in
         let mut sudo_list: Vec<Vec<gtk::Entry>> = vec![];
-        // We create the main window.
         let win = gtk::ApplicationWindow::new(app);
-
-        // Then we set its size and a title.
         win.set_default_size(320, 200);
-        win.set_title("Basic example");
+        win.set_title("sudoku thingy");
         let layout = gtk::Box::new(gtk::Orientation::Vertical, 6);
-        for row in 0..9 {
+        for row in 0..(BLOCK_SIZE*BLOCK_SIZE) {
             let rowbox = gtk::Box::new(gtk::Orientation::Horizontal, 6);
+            //this entry model is going to be pushed to the list, representing the horizontal (rows) lists of buttons
             let mut entry_model: Vec<gtk::Entry> = vec![];
-            for _ in 0..9 {
+            //now for every row, we'll loop 9 times to create an entry for every column
+            for _ in 0..(BLOCK_SIZE*BLOCK_SIZE) {
                 let b = gtk::Entry::new();
                 b.set_text("0");
                 b.set_width_chars(2);
                 entry_model.push(b.clone());
                 rowbox.add(&b);
             }
-
             layout.add(&rowbox);
+            //add the entries to the 2d grid
             sudo_list.push(entry_model);
 
-            if row == 8 {
+            if row == (BLOCK_SIZE*BLOCK_SIZE)-1 {
                 let calculate_button = gtk::Button::new();
                 calculate_button.set_label("Solve!");
                 layout.add(&calculate_button);
@@ -108,7 +107,7 @@ fn main() {
                                 .clone()
                                 .downcast::<gtk::Entry>()
                                 .unwrap()
-                                .get_text()
+                                .text()
                                 .as_str()
                                 .parse::<i32>()
                                 .unwrap();
@@ -142,5 +141,5 @@ fn main() {
         win.add(&layout);
         win.show_all();
     });
-    uiapp.run(&env::args().collect::<Vec<_>>());
+    uiapp.run();
 }
